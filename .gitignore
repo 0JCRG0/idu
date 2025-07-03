@@ -1,1 +1,6 @@
 .gitconfig
+*.ipynb
+.env
+__pycache__
+.vscode
+.idea
