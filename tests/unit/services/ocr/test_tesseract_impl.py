@@ -15,7 +15,7 @@ class TestTesseractOCREngine:
 
     def test_extract_text_from_image_success(self, engine):
         """Test successful text extraction."""
-        result = engine.extract_text_from_image("data/1/docs-sm/advertisement/00005259.jpg")
+        result = engine.extract_text_from_image("data/docs-sm/advertisement/00005259.jpg")
 
         assert result == ": Afe-v of the decisions =\n- your kids may make without you.\n\nTIMN 0053896\n"
 
