@@ -27,20 +27,92 @@ class OlmoOCREngine(OCREngineBase):
         self.api_key = HF_SECRETS.access_token
         self.endpoint_url = HF_SECRETS.url
 
+    def _prepare_image_and_prompt(
+            self, image_path: str | None, image_input: bytes | None, anchor: bool | None
+        ) -> tuple[str, str]:
+        """
+        Prepare the image and prompt for OCR processing.
+
+        Args
+        ----
+            image_path (str | None): The path to the image file.
+            image_input (bytes | None): The image input as bytes.
+            anchor (bool | None): Whether to use an anchor for the OCR engine.
+
+        Return
+        -------
+            tuple[str, str]: The base64 encoded PNG image and the prompt.
+
+        Raise
+        ------
+            AssertionError: If invalid inputs are provided.
+        """
+        if image_path and image_input:
+            raise AssertionError("Only one of image_path or image_input should be provided.")
+
+        if isinstance(image_path, str) and image_input is None:
+            img = Image.open(image_path)
+        elif isinstance(image_input, bytes) and image_path is None:
+            img = Image.open(io.BytesIO(image_input))
+        else:
+            raise AssertionError("Invalid type for image_path or image_input.")
+
+        png_buffer = io.BytesIO()
+        img.save(png_buffer, format="PNG")
+        png_buffer.seek(0)
+
+        png_base64 = base64.b64encode(png_buffer.getvalue()).decode("utf-8")
+
+        prompt = default_olmocr_prompt()
+        if anchor is not None:
+            # NOTE: Sometimes OlmoOCR performs better when the anchor text is provided.
+            from src.services.ocr.tesseract_impl import TesseractOCREngine
+
+            tessaract_extraction = TesseractOCREngine().extract_text_from_image(image_path, image_input)
+            prompt = prompt_olmocr_with_anchor(tessaract_extraction)
+
+        return png_base64, prompt
+
+    def _create_chat_messages(self, png_base64: str, prompt: str) -> list[dict]:
+        """
+        Create the chat messages for the OCR request.
+
+        Args
+        ----
+            png_base64 (str): The base64 encoded PNG image.
+            prompt (str): The OCR prompt.
+
+        Return
+        -------
+            list[dict]: The chat messages.
+        """
+        return [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{png_base64}"}},
+                    {"type": "text", "text": prompt},
+                ],
+            }
+        ]
+
     # NOTE: Retrying this many times is required due to cold starts of the HF endpoint.
     @retry(
         stop=stop_after_attempt(4),
         wait=wait_fixed(180),
         retry=retry_if_exception_type(APIStatusError),
     )
-    def _olmo_ocr_hf_endpoint_request(self, image_path: str, anchor: bool | None = None) -> str:
+    def _olmo_ocr_hf_endpoint_request(
+            self, image_path: str | None, image_input: bytes | None = None, anchor: bool | None = None
+        ) -> str:
         """
         Make a request to the HF endpoint for the Olmo OCR model.
 
         Args
         ----
-            image_path (str): The path to the image to be OCRed.
-            anchor (bool | None, optional): Whether to use the anchor prompt. Defaults to None.
+            image_path (str| None, optional): The path to the image file.
+            image_input (bytes | None, optional): The image input as bytes.
+            anchor (bool | None, optional): Whether to use an anchor for the OCR engine. Defaults to None.
 
         Return
         -------
@@ -53,33 +125,12 @@ class OlmoOCREngine(OCREngineBase):
         try:
             client = OpenAI(base_url=self.endpoint_url, api_key=self.api_key)
 
-            img = Image.open(image_path)
-
-            png_buffer = io.BytesIO()
-            img.save(png_buffer, format="PNG")
-            png_buffer.seek(0)
-
-            png_base64 = base64.b64encode(png_buffer.getvalue()).decode("utf-8")
-
-            prompt = default_olmocr_prompt()
-            if anchor is not None:
-                # NOTE: Sometimes OlmoOCR performs better when the anchor text is provided.
-                from src.services.ocr.tesseract_impl import TesseractOCREngine
-
-                tessaract_extraction = TesseractOCREngine().extract_text_from_image(image_path)
-                prompt = prompt_olmocr_with_anchor(tessaract_extraction)
+            png_base64, prompt = self._prepare_image_and_prompt(image_path, image_input, anchor)
+            messages = self._create_chat_messages(png_base64, prompt)
 
             chat_completion = client.chat.completions.create(
                 model="tgi",
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{png_base64}"}},
-                            {"type": "text", "text": prompt},
-                        ],
-                    }
-                ],
+                messages=messages, # type: ignore
                 top_p=None,
                 temperature=None,
                 max_tokens=1000,
@@ -88,9 +139,10 @@ class OlmoOCREngine(OCREngineBase):
                 stop=None,
                 frequency_penalty=None,
                 presence_penalty=None,
-            )
+            ) # type: ignore
 
             content = chat_completion.choices[0].message.content
+            logger.info(content)
             if not content:
                 raise AssertionError("No text extracted from the image.")
             return content
@@ -100,19 +152,22 @@ class OlmoOCREngine(OCREngineBase):
         except Exception as e:
             logger.error(f"Error in _olmo_ocr_hf_endpoint_request: {e}")
             raise e
-    
+
     @retry(
-            stop=stop_after_attempt(3),
-            wait=wait_fixed(180),
-            retry=retry_if_exception_type(APIStatusError),
-        )
-    async def _olmo_ocr_hf_endpoint_request_async(self, image_path: str, anchor: bool | None = None) -> str:
+        stop=stop_after_attempt(3),
+        wait=wait_fixed(180),
+        retry=retry_if_exception_type(APIStatusError),
+    )
+    async def _olmo_ocr_hf_endpoint_request_async(
+            self, image_path: str | None = None, image_input: bytes | None = None, anchor: bool | None = None
+        ) -> str:
         """
         Make an async request to the HF endpoint for the Olmo OCR model.
 
         Args
         ----
-            image_path (str): The path to the image to be OCRed.
+            image_path (str| None, optional): The path to the image file.
+            image_input (bytes | None, optional): The image input as bytes.
             anchor (bool | None, optional): Whether to use the anchor prompt. Defaults to None.
 
         Return
@@ -126,33 +181,12 @@ class OlmoOCREngine(OCREngineBase):
         try:
             client = AsyncOpenAI(base_url=self.endpoint_url, api_key=self.api_key)
 
-            img = Image.open(image_path)
-
-            png_buffer = io.BytesIO()
-            img.save(png_buffer, format="PNG")
-            png_buffer.seek(0)
-
-            png_base64 = base64.b64encode(png_buffer.getvalue()).decode("utf-8")
-
-            prompt = default_olmocr_prompt()
-            if anchor is not None:
-                # NOTE: Sometimes OlmoOCR performs better when the anchor text is provided.
-                from src.services.ocr.tesseract_impl import TesseractOCREngine
-
-                tessaract_extraction = TesseractOCREngine().extract_text_from_image(image_path)
-                prompt = prompt_olmocr_with_anchor(tessaract_extraction)
+            png_base64, prompt = self._prepare_image_and_prompt(image_path, image_input, anchor)
+            messages = self._create_chat_messages(png_base64, prompt)
 
             chat_completion = await client.chat.completions.create(
                 model="tgi",
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{png_base64}"}},
-                            {"type": "text", "text": prompt},
-                        ],
-                    }
-                ],
+                messages=messages, # type: ignore
                 top_p=None,
                 temperature=None,
                 max_tokens=1000,
@@ -161,7 +195,7 @@ class OlmoOCREngine(OCREngineBase):
                 stop=None,
                 frequency_penalty=None,
                 presence_penalty=None,
-            )
+            ) # type: ignore
 
             content = chat_completion.choices[0].message.content
             if not content:
@@ -205,34 +239,40 @@ class OlmoOCREngine(OCREngineBase):
             logger.error(f"Validation failed: {e}")
             raise e
 
-    def extract_text_from_image(self, image_path: str, anchor: bool | None = None) -> str:
+    def extract_text_from_image(
+        self, image_path: str | None = None, image_input: bytes | None = None, anchor: bool | None = None
+    ) -> str:
         """
         Extract text from an image using the HF OCR model.
 
         Args:
-            image_path (str): The path to the image file.
+            image_path (str| None, optional): The path to the image file.
+            image_input (bytes | None, optional): The image input as bytes.
             anchor (bool | None, optional): Whether to use an anchor for the OCR engine. Defaults to None.
 
         Returns
         -------
             str: The extracted text.
         """
-        result = self._olmo_ocr_hf_endpoint_request(image_path, anchor)
+        result = self._olmo_ocr_hf_endpoint_request(image_path, image_input, anchor)
         validated_result = self._parse_ocr_response(result)
         return validated_result
 
-    async def extract_text_from_image_async(self, image_path: str, anchor: bool | None = None) -> str:
+    async def extract_text_from_image_async(
+        self, image_path: str | None = None, image_input: bytes | None = None, anchor: bool | None = None
+    ) -> str:
         """
         Extract text from an image using the HF OCR model asynchronously.
 
         Args:
-            image_path (str): The path to the image file.
+            image_path (str| None, optional): The path to the image file.
+            image_input (bytes | None, optional): The image input as bytes.
             anchor (bool | None, optional): Whether to use an anchor for the OCR engine. Defaults to None.
 
         Returns
         -------
             str: The extracted text.
         """
-        result = await self._olmo_ocr_hf_endpoint_request_async(image_path, anchor)
+        result = await self._olmo_ocr_hf_endpoint_request_async(image_path, image_input, anchor)
         validated_result = self._parse_ocr_response(result)
         return validated_result

@@ -1,3 +1,5 @@
+import io
+
 import pytesseract
 from PIL import Image
 
@@ -12,12 +14,16 @@ class TesseractOCREngine(OCREngineBase):
 
     TIMEOUT = 5
 
-    def extract_text_from_image(self, image_path: str) -> str:
+    def extract_text_from_image(
+        self, image_path: str | None = None, image_input: bytes | None = None, anchor: bool | None = None
+    ) -> str:
         """
-        Extract text from an image using Tesseract OCR.
+        Extract text from an image using a specific OCR.
 
         Args:
-            image_path (str): The path to the image file.
+            image_path (str| None, optional): The path to the image file.
+            image_input (bytes | None, optional): The image input as bytes.
+            anchor (bool | None, optional): Whether to use an anchor for the OCR engine. Defaults to None.
 
         Returns
         -------
@@ -29,7 +35,15 @@ class TesseractOCREngine(OCREngineBase):
             Exception: If there is an unexpected error.
         """
         try:
-            return pytesseract.image_to_string(Image.open(image_path), timeout=self.TIMEOUT)
+            if image_input and image_path:
+                raise AssertionError("Both image_path and image_input cannot be provided.")
+            if isinstance(image_path, str) and image_input is None:
+                return pytesseract.image_to_string(Image.open(image_path), timeout=self.TIMEOUT)
+            elif isinstance(image_input, bytes) and image_path is None:
+                return pytesseract.image_to_string(Image.open(io.BytesIO(image_input)), timeout=self.TIMEOUT)
+            else: 
+                raise AssertionError("Invalid type for image_path or image_input.")
+
         except RuntimeError as e:
             logger.error(f"RuntimeError extracting text from image: {e}")
             raise e
@@ -37,12 +51,15 @@ class TesseractOCREngine(OCREngineBase):
             logger.error(f"Error extracting text from image: {e}", exc_info=True)
             raise e
 
-    async def extract_text_from_image_async(self, image_path: str, anchor: bool | None = None) -> str:
+    async def extract_text_from_image_async(
+        self, image_path: str | None = None, image_input: bytes | None = None, anchor: bool | None = None
+    ) -> str:
         """
         Extract text from an image using the HF OCR model asynchronously.
 
         Args:
-            image_path (str): The path to the image file.
+            image_path (str| None, optional): The path to the image file.
+            image_input (bytes | None, optional): The image input as bytes.
             anchor (bool | None, optional): Whether to use an anchor for the OCR engine. Defaults to None.
 
         Returns
