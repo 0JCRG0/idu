@@ -6,6 +6,7 @@ from src.utils.logging_helper import get_custom_logger
 
 logger = get_custom_logger(__name__)
 
+
 class Entities(BaseModel):
     """Entities extracted from the document."""
 
@@ -24,7 +25,6 @@ class DocumentModelResponse(BaseModel):
     processing_time: str = Field(..., alias="processing_\ntime")
 
 
-
 def handle_error(exception: Exception) -> None:
     """
     Handles errors by logging and raising HTTP exceptions.
@@ -41,6 +41,7 @@ def handle_error(exception: Exception) -> None:
     """
     logger.error(f"Error: {exception}", exc_info=True)
     raise HTTPException(status_code=500, detail=str(exception)) from exception
+
 
 def extract_entities():
     # XXX: Implement the extraction logic here
