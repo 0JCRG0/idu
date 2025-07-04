@@ -7,19 +7,19 @@ from src.services.ocr.tesseract_impl import TesseractOCREngine
 
 class OCREngineFactory:
     """Factory class for creating OCR engine instances."""
-    
+
     @staticmethod
     def create(engine_type: Literal["tesseract", "olmo_ocr"] = "olmo_ocr") -> OCREngineBase:
         """
         Create an OCR engine instance based on the specified type.
-        
+
         Args:
             engine_type: Type of OCR engine ("tesseract" or "olmo_ocr")
-            
+
         Returns
         -------
             Instance of the requested OCR engine implementation
-            
+
         Raises
         ------
             ValueError: If an unsupported engine type is specified
