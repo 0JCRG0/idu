@@ -23,6 +23,12 @@ This API combines state-of-the-art OCR technology, vector database retrieval, an
    - Deploy an instance of the [olmOCR-7B-0225-preview](https://huggingface.co/allenai/olmOCR-7B-0225-preview) model on HuggingFace Inference Endpoints and copy your endpoint URL.
    - Add your API token and endpoint URL to your `.env` file.
 
+## Setup
+
+1. Authenticate to download the kaggle dataset. Follow the instructions [here](https://github.com/Kaggle/kagglehub).
+2. Download the dataset [Real World Documents Collections](https://www.kaggle.com/datasets/shaz13/real-world-documents-collections) and populate the vector database with the training set to perform document detection.
+   - Run the setup script with this command `uv run setup.py`. This will download the dataset and move it to `data`. Split the dataset into training and testing sets and populate the vector database with the training set.
+
 ## OCR Service
 
 The API supports two OCR engines:
@@ -37,20 +43,9 @@ The API supports two OCR engines:
 
 ## Testing
 
-1. Authenticate to download the kaggle dataset. Follow the instructions [here](https://github.com/Kaggle/kagglehub).
-2. Download the dataset [Real World Documents Collections](https://www.kaggle.com/datasets/shaz13/real-world-documents-collections) like so: 
 
-```python
-import kagglehub
 
-path = kagglehub.dataset_download("shaz13/real-world-documents-collections")
-
-print("Path to dataset files:", path)
-```
-
-3. Move the dataset to the `data` folder.
-
-4. Run the tests with `pytest`
+4. Run the tests with `pytest` like so: `uv run pytest -v tests/unit/services/ocr/`
 
 ## Next steps
 
