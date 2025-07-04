@@ -9,7 +9,7 @@ logger = get_custom_logger(__name__)
 app = FastAPI(
     title="Intelligent Document Understanding API",
     summary="API that extracts structured information from unstructured documents.",
-    description="This API combines OCR technology, vector database retrieval, and LLMs to understand any document."
+    description="This API combines OCR technology, vector database retrieval, and LLMs to understand any document.",
 )
 
 app.include_router(health.router)

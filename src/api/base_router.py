@@ -28,10 +28,10 @@ class BaseRouter:
         prefix : str, optional
             The prefix for the router, by default "v1"
         """
-        self.prefix = prefix 
+        self.prefix = prefix
         self.endpoint = endpoint
         self.path = path
-        self.tags = tags 
+        self.tags = tags
 
         self.router = APIRouter(prefix=self.prefix, tags=self.tags)
         self.__setup_routes()
@@ -45,5 +45,3 @@ class BaseRouter:
             status_code=200,
             response_model=SuccessfulResponse,
         )
-
-
