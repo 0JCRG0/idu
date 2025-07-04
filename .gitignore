@@ -5,3 +5,8 @@ __pycache__
 .vscode
 .idea
 data/
+./chroma
+chroma
+.venv
+.pytest_cache
+.ruff_cache
