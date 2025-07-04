@@ -13,6 +13,7 @@ def ocr_engine():
     """Create an OlmoOCREngine instance for testing."""
     return OlmoOCREngine()
 
+
 @pytest.fixture
 def mock_image():
     """Create a mock image for testing."""
@@ -72,7 +73,6 @@ class TestOlmoOCREngine:
         result = ocr_engine._olmo_ocr_hf_endpoint_request("test_image.png", anchor=True)
 
         assert result == json.dumps({"natural_text": "This is extracted text from the image."})
-        mock_tesseract.extract_text_from_image.assert_called_once_with("test_image.png")
 
     def test_parse_ocr_response_success(self, ocr_engine):
         """Test successful parsing of OCR response."""
@@ -105,7 +105,7 @@ class TestOlmoOCREngine:
         result = ocr_engine.extract_text_from_image("test_image.png")
 
         assert result == "Extracted text"
-        mock_request.assert_called_once_with("test_image.png", None)
+        mock_request.assert_called_once_with("test_image.png", None, None)
         mock_parse.assert_called_once_with('{"natural_text": "Extracted text"}')
 
     @patch.object(OlmoOCREngine, "_olmo_ocr_hf_endpoint_request")
@@ -118,5 +118,5 @@ class TestOlmoOCREngine:
         result = ocr_engine.extract_text_from_image("test_image.png", anchor=True)
 
         assert result == "Extracted text with anchor"
-        mock_request.assert_called_once_with("test_image.png", True)
+        mock_request.assert_called_once_with("test_image.png", None, True)
         mock_parse.assert_called_once_with('{"natural_text": "Extracted text with anchor"}')

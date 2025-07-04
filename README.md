@@ -1,52 +1,120 @@
 # Intelligent Document Understanding API
 
-This API combines state-of-the-art OCR technology, vector database retrieval, and large language models (LLMs) to help you understand and process any document efficiently.
+This API seamlessly integrates state-of-the-art OCR technology, vector database retrieval, and large language models (LLMs) to efficiently process and understand JPG documents.
 
 ## Features
 
-- **Advanced OCR**: Extract text using traditional or deep-learning-powered OCR backends.
-- **Vector Database Retrieval**: Quickly find relevant information.
-- **LLM Integration**: Seamlessly interact with and understand document contents.
+- **Advanced OCR**: Extracts text using both traditional and deep-learning-powered OCR engines.
+- **Vector Database Retrieval**: Quickly finds the most relevant information from your document set.
+- **LLM Integration**: Interprets, validates, and extracts structured information from document contents.
 
 ## Installation
 
 1. **Install Dependency Manager**  
-   This project uses [`uv`](https://docs.astral.sh/uv/) for dependency management. Follow the [installation instructions](https://docs.astral.sh/uv/getting-started/installation/) on their website.
+   This project uses [`uv`](https://docs.astral.sh/uv/) for dependency management. Follow the [official instructions](https://docs.astral.sh/uv/getting-started/installation/) to install `uv`.
 
-2. **Environment Variables**  
-   Copy the template environment file and fill in your values:
-   
-   Edit `.env` to set required variables such as your HuggingFace (HF) access token.
+2. **Set Up Environment Variables**  
+   Copy the template `.env` file and fill in your credentials.  
+   Important variables include your HuggingFace (HF) access token and the OCR endpoint URL.
 
 3. **Set Up Model Endpoint**  
-   - Register for a [Hugging Face](https://huggingface.co/) account and get your HF API token.
-   - Deploy an instance of the [olmOCR-7B-0225-preview](https://huggingface.co/allenai/olmOCR-7B-0225-preview) model on HuggingFace Inference Endpoints and copy your endpoint URL.
+   - Register for a [Hugging Face](https://huggingface.co/) account and obtain your API token.
+   - Deploy an instance of the [olmOCR-7B-0225-preview](https://huggingface.co/allenai/olmOCR-7B-0225-preview) model via HuggingFace Inference Endpoints, and copy your endpoint URL.
    - Add your API token and endpoint URL to your `.env` file.
 
-## Setup
+## Data Setup
 
-1. Authenticate to download the kaggle dataset. Follow the instructions [here](https://github.com/Kaggle/kagglehub).
-2. Download the dataset [Real World Documents Collections](https://www.kaggle.com/datasets/shaz13/real-world-documents-collections) and populate the vector database with the training set to perform document detection.
-   - Run the setup script with this command `uv run setup.py`. This will download the dataset and move it to `data`. Split the dataset into training and testing sets and populate the vector database with the training set.
+1. Authenticate with Kaggle to access and download datasets. Refer to [KaggleHub instructions](https://github.com/Kaggle/kagglehub).
+2. Run this command to download the [Real World Documents Collections](https://www.kaggle.com/datasets/shaz13/real-world-documents-collections) dataset and to populate the vector database with training data:
+   ```shell
+   uv run setup.py
+   ```
+   - This command downloads the dataset, moves it to the `data` directory, splits it into training and testing sets, and populates the vector database with training data.
 
 ## OCR Service
 
-The API supports two OCR engines:
+This API supports two OCR engines:
 
-- **tesseract**: The open-source OCR engine. Suitable for basic text extraction, but limited on complex or non-standard layouts.
-- **olmo_ocr**: A fine tuned from Qwen2-VL-7B-Instruct model deployed via HuggingFace.  
-  This is recommended due to:
-    - **Advanced Extraction**: Handles complex layouts and noisy images better.
-    - **Anchor Functionality**: Uses `tesseract`-extracted text as “anchors” to guide the model (`olmo_ocr`) in extracting more accurate and context-aware text blocks.
+- **tesseract**:  
+  Open-source OCR engine. Best for simple documents, but may struggle with complex layouts and non-standard formats.
+- **olmo_ocr**:  
+  A fine-tuned Qwen2-VL-7B-Instruct model deployed via HuggingFace — recommended for most use cases:
+  - **Advanced Extraction**: Handles complex layouts and noisy images with high accuracy.
+  - **Anchor Functionality**: Uses text from `tesseract` as anchors to guide the `olmo_ocr` model for more context-aware extraction.
 
-**Recommendation:** Use `olmo_ocr` for best results, especially when high-fidelity or structured extraction is necessary.
+**Recommendation:** Choose `olmo_ocr` for best results, especially when dealing with structured or high-fidelity extraction needs.
+
+## Vector Database
+
+- Utilizes [Chroma](https://www.trychroma.com/) for embedding storage and similarity search.
+- Embeddings are generated via OpenAI's `text-embedding-3-small` model, but the system is modular and can incorporate other vector databases or embedding models.
+- Similarity scores are normalized with a sigmoid function to yield a confidence estimate, indicating the likelihood the extracted text matches the predicted document type.
+- Results are further validated by an LLM to improve reliability, especially when the dataset expands.
+
+## Processing Flow
+
+1. **Upload**: The user uploads a document (JPEG image).
+2. **OCR**: The document is processed via the selected OCR service.
+3. **Similarity Search**: The extracted text is compared against the vector database, identifying the nearest document type and providing a confidence score.
+4. **LLM Validation**: The initial document type prediction and confidence score are validated by the LLM.
+5. **Type Correction**: If the LLM disagrees with the initial prediction, it selects a new document type and loads the appropriate extraction prompt (confidence is set to `None` in this case).
+6. **Entity Extraction**: Another LLM extracts the relevant fields/entities based on the validated document type.
+7. **Response**: The API returns a structured response:
+
+   ```python
+   class DocumentModelResponse(BaseModel):
+       """Response model for the document extraction endpoint."""
+
+       document_type: str
+       confidence: float | None
+       entities: dict
+       processing_time: float
+   ```
+
+## Running with Docker
+
+**Note:** Run the setup script (`setup.py`) before building the Docker container.
+
+Start the service:
+```shell
+docker compose up --build
+```
+
+Run integration tests:
+```shell
+uv run pytest -v tests/
+```
+
+Alternatively, send a manual request:
+```python
+import requests
+
+with open("data/test/advertisement/660202.jpg", "rb") as f:
+    image_bytes = f.read()
+url = "http://localhost:8000/v1/extract-entities"
+files = {"file": ("invoice.jpg", image_bytes, "image/jpg")}
+
+response = requests.post(url, files=files)
+data = response.json()
+```
+
+## Running Locally (Without Docker)
+
+Start the FastAPI app directly:
+```shell
+python3 -m uvicorn src.main:app --host 0.0.0.0 --port 8000
+```
 
 ## Testing
 
+Execute tests using pytest:
+```shell
+uv run pytest -v tests/unit/services/ocr/
+```
 
+## Future Improvements
 
-4. Run the tests with `pytest` like so: `uv run pytest -v tests/unit/services/ocr/`
+- Expand support for additional OCR engines to further improve extraction accuracy.  
+  See [this OCR benchmark](https://huggingface.co/spaces/echo840/ocrbench-leaderboard) for candidate models.
 
-## Next steps
-
-- Due to time restraints, only two OCR engines have been implemented. In the future we should add more to improve the accuracy of the results. This [benchmark](https://huggingface.co/spaces/echo840/ocrbench-leaderboard) is a good starting point.
+---
