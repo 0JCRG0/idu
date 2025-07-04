@@ -36,3 +36,17 @@ class TesseractOCREngine(OCREngineBase):
         except Exception as e:
             logger.error(f"Error extracting text from image: {e}", exc_info=True)
             raise e
+
+    async def extract_text_from_image_async(self, image_path: str, anchor: bool | None = None) -> str:
+        """
+        Extract text from an image using the HF OCR model asynchronously.
+
+        Args:
+            image_path (str): The path to the image file.
+            anchor (bool | None, optional): Whether to use an anchor for the OCR engine. Defaults to None.
+
+        Returns
+        -------
+            str: The extracted text.
+        """
+        raise NotImplementedError("Async extraction is not implemented for Tesseract OCR.")

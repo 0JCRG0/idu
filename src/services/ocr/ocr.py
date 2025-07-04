@@ -3,34 +3,30 @@ from typing import Literal
 from src.services.ocr.base import OCREngineBase
 from src.services.ocr.olmo_ocr_impl import OlmoOCREngine
 from src.services.ocr.tesseract_impl import TesseractOCREngine
-from src.utils.logging_helper import get_custom_logger
-
-logger = get_custom_logger(__name__)
 
 
-class OCREngine(OCREngineBase):
-    """OCR engine that uses a specific OCR engine to extract text from images."""
-
-    def __init__(self, engine: Literal["tesseract", "olmo_ocr"] = "olmo_ocr") -> None:
-        self.engine = engine
-
-    def extract_text_from_image(self, image_path: str, anchor: bool | None = None) -> str:
+class OCREngineFactory:
+    """Factory class for creating OCR engine instances."""
+    
+    @staticmethod
+    def create(engine_type: Literal["tesseract", "olmo_ocr"] = "olmo_ocr") -> OCREngineBase:
         """
-        Extract text from an image using a specific OCR engine.
-
+        Create an OCR engine instance based on the specified type.
+        
         Args:
-            image_path (str): The path to the image file.
-            anchor (bool | None, optional): Whether to use an anchor for the OCR engine. Defaults to None.
-
+            engine_type: Type of OCR engine ("tesseract" or "olmo_ocr")
+            
         Returns
         -------
-            str: The extracted text from the image.
+            Instance of the requested OCR engine implementation
+            
+        Raises
+        ------
+            ValueError: If an unsupported engine type is specified
         """
-        if self.engine == "tesseract":
-            logger.info(f"Using '{self.engine}' to extract text from image: {image_path}")
-            return TesseractOCREngine().extract_text_from_image(image_path)
-        elif self.engine == "olmo_ocr":
-            logger.info(f"Using '{self.engine}' to extract text from image: {image_path}")
-            return OlmoOCREngine().extract_text_from_image(image_path, anchor)
+        if engine_type == "tesseract":
+            return TesseractOCREngine()
+        elif engine_type == "olmo_ocr":
+            return OlmoOCREngine()
         else:
-            raise AssertionError(f"Invalid engine: {self.engine}")
+            raise ValueError(f"Unsupported OCR engine type: {engine_type}")
