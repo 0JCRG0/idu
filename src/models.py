@@ -1,6 +1,6 @@
 from typing import Any
 
-from pydantic import BaseModel, Field, RootModel, field_validator, model_validator
+from pydantic import BaseModel
 
 
 class HealthCheck(BaseModel):
@@ -46,3 +46,12 @@ class OlmoOCRResponse(BaseModel):
     is_table: bool
     is_diagram: bool
     natural_text: str
+
+
+class DocumentModelResponse(BaseModel):
+    """Response model for the document extraction endpoint."""
+
+    document_type: str
+    confidence: float | None
+    entities: dict
+    processing_time: float
