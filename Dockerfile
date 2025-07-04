@@ -48,6 +48,8 @@ RUN apt-get update && \
 
 # Copy application code last - only these layers rebuild when code changes
 COPY pyproject.toml ./
+COPY data data
+COPY chroma chroma
 COPY src src
 
 EXPOSE 8080
