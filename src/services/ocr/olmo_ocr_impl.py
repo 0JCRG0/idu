@@ -28,8 +28,8 @@ class OlmoOCREngine(OCREngineBase):
         self.endpoint_url = HF_SECRETS.url
 
     def _prepare_image_and_prompt(
-            self, image_path: str | None, image_input: bytes | None, anchor: bool | None
-        ) -> tuple[str, str]:
+        self, image_path: str | None, image_input: bytes | None, anchor: bool | None
+    ) -> tuple[str, str]:
         """
         Prepare the image and prompt for OCR processing.
 
@@ -103,8 +103,8 @@ class OlmoOCREngine(OCREngineBase):
         retry=retry_if_exception_type(APIStatusError),
     )
     def _olmo_ocr_hf_endpoint_request(
-            self, image_path: str | None, image_input: bytes | None = None, anchor: bool | None = None
-        ) -> str:
+        self, image_path: str | None, image_input: bytes | None = None, anchor: bool | None = None
+    ) -> str:
         """
         Make a request to the HF endpoint for the Olmo OCR model.
 
@@ -130,7 +130,7 @@ class OlmoOCREngine(OCREngineBase):
 
             chat_completion = client.chat.completions.create(
                 model="tgi",
-                messages=messages, # type: ignore
+                messages=messages,  # type: ignore
                 top_p=None,
                 temperature=None,
                 max_tokens=1000,
@@ -139,7 +139,7 @@ class OlmoOCREngine(OCREngineBase):
                 stop=None,
                 frequency_penalty=None,
                 presence_penalty=None,
-            ) # type: ignore
+            )  # type: ignore
 
             content = chat_completion.choices[0].message.content
             logger.info(content)
@@ -159,8 +159,8 @@ class OlmoOCREngine(OCREngineBase):
         retry=retry_if_exception_type(APIStatusError),
     )
     async def _olmo_ocr_hf_endpoint_request_async(
-            self, image_path: str | None = None, image_input: bytes | None = None, anchor: bool | None = None
-        ) -> str:
+        self, image_path: str | None = None, image_input: bytes | None = None, anchor: bool | None = None
+    ) -> str:
         """
         Make an async request to the HF endpoint for the Olmo OCR model.
 
@@ -186,7 +186,7 @@ class OlmoOCREngine(OCREngineBase):
 
             chat_completion = await client.chat.completions.create(
                 model="tgi",
-                messages=messages, # type: ignore
+                messages=messages,  # type: ignore
                 top_p=None,
                 temperature=None,
                 max_tokens=1000,
@@ -195,7 +195,7 @@ class OlmoOCREngine(OCREngineBase):
                 stop=None,
                 frequency_penalty=None,
                 presence_penalty=None,
-            ) # type: ignore
+            )  # type: ignore
 
             content = chat_completion.choices[0].message.content
             if not content:

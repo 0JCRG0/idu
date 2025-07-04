@@ -13,6 +13,7 @@ def ocr_engine():
     """Create an OlmoOCREngine instance for testing."""
     return OlmoOCREngine()
 
+
 @pytest.fixture
 def mock_image():
     """Create a mock image for testing."""

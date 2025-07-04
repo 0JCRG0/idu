@@ -41,7 +41,7 @@ class TesseractOCREngine(OCREngineBase):
                 return pytesseract.image_to_string(Image.open(image_path), timeout=self.TIMEOUT)
             elif isinstance(image_input, bytes) and image_path is None:
                 return pytesseract.image_to_string(Image.open(io.BytesIO(image_input)), timeout=self.TIMEOUT)
-            else: 
+            else:
                 raise AssertionError("Invalid type for image_path or image_input.")
 
         except RuntimeError as e:
