@@ -61,10 +61,11 @@ async def extract_entities_impl(image_input: bytes) -> dict:
             raise AssertionError("Document type validation failed")
         if validated_document_type != document_type:
             logger.warning(f"Document type validation mismatch: {document_type} != {validated_document_type}")
-            logger.warning("Setting confidence to None")
+            logger.warning(f"Setting confidence to None and document_type to '{validated_document_type}'")
             confidence = None
+            document_type = validated_document_type
 
-        system_prompt = create_extraction_prompt(validated_document_type)
+        system_prompt = create_extraction_prompt(document_type)
         response = extract_entities_from_doc(system_prompt, f"<document_text>{user_content}</document_text>").text  # type: ignore
         response_json = extract_valid_json(response)
         result = {
