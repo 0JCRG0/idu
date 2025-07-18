@@ -35,7 +35,9 @@ def get_custom_logger(name: str) -> logging.Logger:
 
     return logger
 
+
 logger = get_custom_logger(__name__)
+
 
 def log_attempt_retry(retry_state: RetryCallState):
     """

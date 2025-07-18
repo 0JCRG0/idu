@@ -31,7 +31,5 @@ class EnvHelper:
                     url=os.environ["HF_URL"],
                 ),
             ),
-            django_secrets=DjangoSecrets(
-                secret_key=os.environ["DJANGO_SECRET_KEY"]
-            )
+            django_secrets=DjangoSecrets(secret_key=os.environ["DJANGO_SECRET_KEY"]),
         )

@@ -30,6 +30,7 @@ class APIKeys(BaseModel):
     anthropic: str
     hf: HuggingFaceAPIKeys
 
+
 class DjangoSecrets(BaseModel):
     """Model representing the Django Secrets."""
 
