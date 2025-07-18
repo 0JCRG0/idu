@@ -7,7 +7,7 @@ from src.constants import DOCUMENT_FIELDS
 def prompt_olmocr_with_anchor(base_text: str) -> str:
     """Returns the prompt for the finetuning step of the OLMOCR model."""
     return (
-        f"Below is the image of one page of a document, as well as some raw textual content that was previously extracted for it. "
+        f"Below is the image of one page of a document, as well as some raw textual content that was previously extracted for it. "  # noqa: E501
         f"Just return the plain text representation of this document as if you were reading it naturally.\n"
         f"Do not hallucinate.\n"
         f"RAW_TEXT_START\n{base_text}\nRAW_TEXT_END"
@@ -35,7 +35,8 @@ def create_document_type_validation_prompt(current_document_type: str) -> str:
         document_text: The actual text content of the document
         current_document_type: The currently selected document type
 
-    Returns:
+    Returns
+    -------
         A formatted prompt string for document type validation
     """
     # Format confidence scores with their fields
@@ -74,7 +75,7 @@ def create_document_type_validation_prompt(current_document_type: str) -> str:
             - Either the <current_selection> value or an alternative document type name
             - No explanations, no additional text
         </response_format>
-    </document_type_validation_task>"""
+    </document_type_validation_task>"""  # noqa: E501
 
 
 def create_extraction_prompt(document_type: str, custom_fields: list[dict[str, str]] | None = None) -> str:
@@ -156,4 +157,4 @@ def create_extraction_prompt(document_type: str, custom_fields: list[dict[str, s
         </example_response_format>
         
 
-    </document_extraction_task>"""
+    </document_extraction_task>"""  # noqa: E501

@@ -1,8 +1,10 @@
-from src.utils.env_helper import EnvHelper
 from pathlib import Path
+
+from src.utils.env_helper import EnvHelper
 
 env = EnvHelper.load_env_variables()
 ROOT_DIR = Path(__file__).parent
+DJANGO_SECRET_KEY = env.django_secrets.secret_key
 OPENAI_API_KEY = env.api_keys.openai
 ANTHROPIC_API_KEY = env.api_keys.anthropic
 HF_SECRETS = env.api_keys.hf

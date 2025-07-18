@@ -15,7 +15,8 @@ from src.constants import HF_SECRETS
 from src.llm.prompts import default_olmocr_prompt, prompt_olmocr_with_anchor
 from src.models import OlmoOCRResponse
 from src.services.ocr.base import OCREngineBase
-from src.utils.logging_helper import get_custom_logger
+from src.services.ocr.tesseract_impl import TesseractOCREngine
+from src.utils.logging_helper import get_custom_logger, log_attempt_retry
 
 logger = get_custom_logger(__name__)
 
@@ -66,7 +67,6 @@ class OlmoOCREngine(OCREngineBase):
         prompt = default_olmocr_prompt()
         if anchor is not None:
             # NOTE: Sometimes OlmoOCR performs better when the anchor text is provided.
-            from src.services.ocr.tesseract_impl import TesseractOCREngine
 
             tessaract_extraction = TesseractOCREngine().extract_text_from_image(image_path, image_input)
             prompt = prompt_olmocr_with_anchor(tessaract_extraction)
@@ -98,9 +98,10 @@ class OlmoOCREngine(OCREngineBase):
 
     # NOTE: Retrying this many times is required due to cold starts of the HF endpoint.
     @retry(
-        stop=stop_after_attempt(4),
+        stop=stop_after_attempt(7),
         wait=wait_fixed(180),
         retry=retry_if_exception_type(APIStatusError),
+        after=log_attempt_retry,
     )
     def _olmo_ocr_hf_endpoint_request(
         self, image_path: str | None, image_input: bytes | None = None, anchor: bool | None = None
@@ -147,16 +148,17 @@ class OlmoOCREngine(OCREngineBase):
                 raise AssertionError("No text extracted from the image.")
             return content
         except APIStatusError as e:
-            logger.warning("Service unavailable, retrying...")
+            logger.warning("Service unavailable. Retrying in 180 seconds...")
             raise e
         except Exception as e:
             logger.error(f"Error in _olmo_ocr_hf_endpoint_request: {e}")
             raise e
 
     @retry(
-        stop=stop_after_attempt(3),
+        stop=stop_after_attempt(7),
         wait=wait_fixed(180),
         retry=retry_if_exception_type(APIStatusError),
+        after=log_attempt_retry,
     )
     async def _olmo_ocr_hf_endpoint_request_async(
         self, image_path: str | None = None, image_input: bytes | None = None, anchor: bool | None = None
@@ -202,7 +204,7 @@ class OlmoOCREngine(OCREngineBase):
                 raise AssertionError("No text extracted from the image.")
             return content
         except APIStatusError as e:
-            logger.warning("Service unavailable, retrying...")
+            logger.warning("Service unavailable, retrying in 180 seconds...")
             raise e
         except Exception as e:
             logger.error(f"Error in _olmo_ocr_hf_endpoint_request_async: {e}")
@@ -239,6 +241,11 @@ class OlmoOCREngine(OCREngineBase):
             logger.error(f"Validation failed: {e}")
             raise e
 
+    @retry(
+        stop=stop_after_attempt(5),
+        retry=retry_if_exception_type(Exception),
+        after=log_attempt_retry,
+    )
     def extract_text_from_image(
         self, image_path: str | None = None, image_input: bytes | None = None, anchor: bool | None = None
     ) -> str:
@@ -258,6 +265,11 @@ class OlmoOCREngine(OCREngineBase):
         validated_result = self._parse_ocr_response(result)
         return validated_result
 
+    @retry(
+        stop=stop_after_attempt(5),
+        retry=retry_if_exception_type(Exception),
+        after=log_attempt_retry,
+    )
     async def extract_text_from_image_async(
         self, image_path: str | None = None, image_input: bytes | None = None, anchor: bool | None = None
     ) -> str:
