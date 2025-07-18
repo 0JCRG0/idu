@@ -48,10 +48,13 @@ RUN apt-get update && \
 
 # Copy application code last - only these layers rebuild when code changes
 COPY pyproject.toml ./
+COPY manage.py ./
 COPY data data
 COPY chroma chroma
 COPY src src
+COPY api api
+COPY idu_django idu_django
 
-EXPOSE 8080
+EXPOSE 8000
 
-HEALTHCHECK CMD curl --fail http://localhost:8080/healthcheck || exit 1
+HEALTHCHECK CMD curl --fail http://localhost:8000/healthcheck || exit 1
