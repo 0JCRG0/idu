@@ -6,6 +6,11 @@ populate-vectordb:
 	@echo "Running command to populate vectordb"
 	uv run manage.py populate_vectordb
 
+.PHONY: populate-vectordb-test
+populate-vectordb-test:			
+	@echo "Running command to populate vectordb"
+	uv run manage.py populate_vectordb --dataset-path data/test
+
 .PHONY: lint
 lint:			
 	@echo "Running linters"
@@ -15,7 +20,7 @@ lint:
 .PHONY: unit-test
 unit-test:			
 	@echo "Running Unit tests"
-	uv run pytest tests/unit
+	uv run pytest tests/unit -v
 
 .PHONY: pre-push
 pre-push:			
@@ -26,7 +31,7 @@ pre-push:
 .PHONY: integration-test
 integration-test:			
 	@echo "Running integration tests"
-	uv run pytest tests/integration
+	uv run pytest tests/integration -v
 
 .PHONY: local-run
 local-run:
