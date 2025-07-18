@@ -8,7 +8,7 @@ populate-vectordb:
 
 .PHONY: populate-vectordb-test
 populate-vectordb-test:			
-	@echo "Running command to populate vectordb"
+	@echo "Running command to populate vectordb with test data"
 	uv run manage.py populate_vectordb --dataset-path data/test
 
 .PHONY: lint
