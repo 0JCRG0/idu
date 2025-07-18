@@ -30,11 +30,17 @@ class APIKeys(BaseModel):
     anthropic: str
     hf: HuggingFaceAPIKeys
 
+class DjangoSecrets(BaseModel):
+    """Model representing the Django Secrets."""
+
+    secret_key: str
+
 
 class EnvVariables(BaseModel):
     """Model representing all the environment variables."""
 
     api_keys: APIKeys
+    django_secrets: DjangoSecrets
 
 
 class OlmoOCRResponse(BaseModel):
