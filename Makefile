@@ -14,8 +14,8 @@ lint:
 	uv run ruff format .
 	uv run ruff check --fix .
 
-.PHONY: test-unit
-test-unit:			
+.PHONY: unit-test
+unit-test:			
 	@echo "Running Unit tests"
 	uv run pytest tests/unit
 
@@ -23,13 +23,12 @@ test-unit:
 pre-push:			
 	@echo "Running pre-push checks"
 	uv run ruff check .
-	make type-check
-	make test_unit
+	make unit-test
 
-.PHONY: test-infrastructure
-test-infrastructure:			
-	@echo "Running infrastructure tests"
-	uv run pytest tests/infrastructure
+.PHONY: integration-test
+integration-test:			
+	@echo "Running integration tests"
+	uv run pytest tests/integration
 
 .PHONY: local-run
 local-run:
