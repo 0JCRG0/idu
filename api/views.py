@@ -1,5 +1,4 @@
 import asyncio
-from typing import Any, Dict
 
 from django.core.files.uploadedfile import UploadedFile
 from django.http import JsonResponse
@@ -31,13 +30,10 @@ def handle_error(exception: Exception) -> JsonResponse:
         JSON response with error details
     """
     logger.error(f"Error: {exception}", exc_info=True)
-    return JsonResponse(
-        {"error": str(exception)}, 
-        status=status.HTTP_500_INTERNAL_SERVER_ERROR
-    )
+    return JsonResponse({"error": str(exception)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_view(['POST'])
+@api_view(["POST"])
 @parser_classes([MultiPartParser])
 def extract_entities(request: Request) -> Response:
     """
@@ -54,35 +50,26 @@ def extract_entities(request: Request) -> Response:
         The extracted entities and metadata
     """
     try:
-        file: UploadedFile | None = request.FILES.get('file') # type: ignore
+        file: UploadedFile | None = request.FILES.get("file")  # type: ignore
         if not file:
-            return Response(
-                {"error": "No file provided"}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
+            return Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
+
         # Validate file type
         if not file.name:
-            return Response(
-                {"error": "File must have a name"}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "File must have a name"}, status=status.HTTP_400_BAD_REQUEST)
 
         if not file.name.lower().endswith((".jpg", ".jpeg")):
-            return Response(
-                {"error": "Only JPG/JPEG files are allowed"}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "Only JPG/JPEG files are allowed"}, status=status.HTTP_400_BAD_REQUEST)
 
         if file.content_type not in ["image/jpeg", "image/jpg"]:
             return Response(
-                {"error": f"Invalid content type: {file.content_type}. Only JPG/JPEG files are allowed"}, 
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": f"Invalid content type: {file.content_type}. Only JPG/JPEG files are allowed"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Read file content
         content = file.read()
-        
+
         logger.info(f"Processing file: {file.name}")
 
         # Since Django views are synchronous by default, we need to run the async function
@@ -102,13 +89,10 @@ def extract_entities(request: Request) -> Response:
 
     except Exception as e:
         logger.error(f"Error processing request: {e}", exc_info=True)
-        return Response(
-            {"error": str(e)}, 
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def health_check(request: Request) -> Response:
     """
     Health check endpoint.
