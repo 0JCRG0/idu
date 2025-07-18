@@ -1,6 +1,11 @@
 .ONESHELL:
 ENV_PREFIX=$(shell python -c "if __import__('pathlib').Path('.venv/bin/pip').exists(): print('.venv/bin/')")
 
+.PHONY: populate-vectordb
+populate-vectordb:			
+	@echo "Running command to populate vectordb"
+	uv run manage.py populate_vectordb
+
 .PHONY: lint
 lint:			
 	@echo "Running linters"
