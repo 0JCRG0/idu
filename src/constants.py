@@ -1,5 +1,6 @@
-from src.utils.env_helper import EnvHelper
 from pathlib import Path
+
+from src.utils.env_helper import EnvHelper
 
 env = EnvHelper.load_env_variables()
 ROOT_DIR = Path(__file__).parent
