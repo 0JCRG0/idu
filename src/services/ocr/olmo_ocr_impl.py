@@ -13,7 +13,7 @@ from tenacity import (
 
 from src.constants import HF_SECRETS
 from src.llm.prompts import default_olmocr_prompt, prompt_olmocr_with_anchor
-from src.models import OlmoOCRResponse
+from src.schemas.ocr import OlmoOCRResponse
 from src.services.ocr.base import OCREngineBase
 from src.services.ocr.tesseract_impl import TesseractOCREngine
 from src.utils.logging_helper import get_custom_logger, log_attempt_retry

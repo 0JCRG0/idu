@@ -2,7 +2,7 @@ import os
 
 from dotenv import find_dotenv, load_dotenv
 
-from src.models import APIKeys, DjangoSecrets, EnvVariables, HuggingFaceAPIKeys
+from src.schemas.env_variables import APIKeys, DjangoSecrets, EllVariables, EnvVariables, HuggingFaceAPIKeys
 from src.utils.logging_helper import get_custom_logger
 
 logger = get_custom_logger(__name__)
@@ -32,4 +32,5 @@ class EnvHelper:
                 ),
             ),
             django_secrets=DjangoSecrets(secret_key=os.environ["DJANGO_SECRET_KEY"]),
+            ell=EllVariables(store_path=os.environ.get("ELL_STORE_PATH", "")),
         )

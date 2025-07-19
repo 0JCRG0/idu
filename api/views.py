@@ -9,7 +9,8 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from src.core.orchestrator import extract_entities_impl
-from src.models import DocumentModelResponse
+from src.schemas.api import DocumentModelResponse
+from src.utils.file_processing import get_supported_content_types, get_supported_extensions, validate_and_convert_image
 from src.utils.logging_helper import get_custom_logger
 
 logger = get_custom_logger(__name__)
@@ -37,7 +38,7 @@ def handle_error(exception: Exception) -> JsonResponse:
 @parser_classes([MultiPartParser])
 def extract_entities(request: Request) -> Response:
     """
-    Extract entities from uploaded JPG document.
+    Extract entities from uploaded document (JPG, PNG, or PDF).
 
     Parameters
     ----------
@@ -58,17 +59,30 @@ def extract_entities(request: Request) -> Response:
         if not file.name:
             return Response({"error": "File must have a name"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not file.name.lower().endswith((".jpg", ".jpeg")):
-            return Response({"error": "Only JPG/JPEG files are allowed"}, status=status.HTTP_400_BAD_REQUEST)
+        supported_extensions = get_supported_extensions()
+        supported_content_types = get_supported_content_types()
 
-        if file.content_type not in ["image/jpeg", "image/jpg"]:
+        if not file.name.lower().endswith(supported_extensions):
             return Response(
-                {"error": f"Invalid content type: {file.content_type}. Only JPG/JPEG files are allowed"},
+                {"error": f"Unsupported file extension. Supported formats: {', '.join(supported_extensions)}"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Read file content
-        content = file.read()
+        if file.content_type not in supported_content_types:
+            supported_types_str = ", ".join(supported_content_types)
+            return Response(
+                {"error": f"Invalid content type: {file.content_type}. Supported types: {supported_types_str}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Read and process file content
+        original_content = file.read()
+
+        # Convert file to appropriate format (handles PDF to PNG conversion)
+        try:
+            content = validate_and_convert_image(original_content, file.content_type or "", file.name)
+        except Exception as e:
+            return Response({"error": f"File processing error: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
         logger.info(f"Processing file: {file.name}")
 
