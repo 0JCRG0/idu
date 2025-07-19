@@ -6,6 +6,7 @@ env = EnvHelper.load_env_variables()
 ROOT_DIR = Path(__file__).parent
 DJANGO_SECRET_KEY = env.django_secrets.secret_key
 OPENAI_API_KEY = env.api_keys.openai
+ELL_STORE_PATH= env.ell.store_path if env.ell.store_path else None
 ANTHROPIC_API_KEY = env.api_keys.anthropic
 HF_SECRETS = env.api_keys.hf
 EMBEDDING_DEFAULT_MODEL = "text-embedding-3-small"
