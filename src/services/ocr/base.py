@@ -6,14 +6,14 @@ class OCREngineBase(ABC):
 
     @abstractmethod
     def extract_text_from_image(
-        self, image_path: str | None = None, image_input: bytes | None = None, anchor: bool | None = None
+        self, image_path: str | None = None, image_input: bytes | str | None = None, anchor: bool | None = None
     ) -> str:
         """
         Extract text from an image using a specific OCR.
 
         Args:
             image_path (str| None, optional): The path to the image file.
-            image_input (bytes | None, optional): The image input as bytes.
+            image_input (bytes | str | None, optional): The image input as bytes or a base64 string.
             anchor (bool | None, optional): Whether to use an anchor for the OCR engine. Defaults to None.
 
         Returns
@@ -24,14 +24,14 @@ class OCREngineBase(ABC):
 
     @abstractmethod
     async def extract_text_from_image_async(
-        self, image_path: str | None = None, image_input: bytes | None = None, anchor: bool | None = None
+        self, image_path: str | None = None, image_input: bytes | str | None = None, anchor: bool | None = None
     ) -> str:
         """
         Extract text from an image using the HF OCR model asynchronously.
 
         Args:
             image_path (str| None, optional): The path to the image file.
-            image_input (bytes | None, optional): The image input as bytes.
+            image_input (bytes | str | None, optional): The image input as bytes or a base64 string.
             anchor (bool | None, optional): Whether to use an anchor for the OCR engine. Defaults to None.
 
         Returns

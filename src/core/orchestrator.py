@@ -25,13 +25,13 @@ logger = get_custom_logger(__name__)
     retry=retry_if_not_exception_type(Exception),
     after=log_attempt_retry,
 )
-async def extract_entities_impl(image_input: bytes) -> dict:
+async def extract_entities_impl(image_input: bytes | str) -> dict:
     """
     Implement the endpoint for extraction of entities from the document.
 
     Args
     ----
-        image_input (bytes): The image input as bytes.
+        image_input (bytes | str): The image input as bytes or base64 strings.
 
     Returns
     -------
