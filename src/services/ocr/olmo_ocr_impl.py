@@ -27,22 +27,21 @@ class OlmoOCREngine(OCREngineBase):
     def __init__(self):
         self.api_key = HF_SECRETS.access_token
         self.endpoint_url = HF_SECRETS.url
-    
+
     def __convert_to_png_base64(self, img: Image.Image):
         png_buffer = io.BytesIO()
         img.save(png_buffer, format="PNG")
         png_buffer.seek(0)
         png_base64 = base64.b64encode(png_buffer.getvalue()).decode("utf-8")
         return png_base64
-    
+
     def _convert_image_to_png_base64(self, image_path: str | None, image_input: bytes | str | None) -> str:
-        
         if isinstance(image_path, str) and image_input is None:
             logger.info("The image input is a path. Converting to base64 encoded PNG string...")
             img = Image.open(image_path)
             png_base64 = self.__convert_to_png_base64(img)
             return png_base64
-        
+
         if isinstance(image_input, bytes) and image_path is None:
             logger.info("The image input is bytes. Converting to base64 encoded PNG string...")
             img = Image.open(io.BytesIO(image_input))

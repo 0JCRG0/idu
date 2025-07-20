@@ -6,6 +6,7 @@ from src.utils.logging_helper import get_custom_logger
 
 logger = get_custom_logger(__name__)
 
+
 def pdf_to_png_base64(pdf_content: bytes) -> str:
     """
     Convert PDF content to PNG bytes.
@@ -29,7 +30,7 @@ def pdf_to_png_base64(pdf_content: bytes) -> str:
         with NamedTemporaryFile(suffix=".pdf", delete=True) as temp_pdf:
             temp_pdf.write(pdf_content)
             png_base64 = render_pdf_to_base64png(temp_pdf.name, 1, 1024)
-        
+
         logger.info("PDF converted to PNG successfully")
         return png_base64
 
