@@ -20,7 +20,7 @@ lint:
 .PHONY: unit-test
 unit-test:			
 	@echo "Running Unit tests"
-	uv run pytest tests/unit -v
+	uv run pytest --cov=src --cov-report=term tests/unit
 
 .PHONY: pre-push
 pre-push:			
