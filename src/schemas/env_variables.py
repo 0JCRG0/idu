@@ -21,6 +21,7 @@ class EllVariables(BaseModel):
 
     store_path: str
 
+
 class DjangoSecrets(BaseModel):
     """Model representing the Django Secrets."""
 
@@ -33,4 +34,3 @@ class EnvVariables(BaseModel):
     api_keys: APIKeys
     django_secrets: DjangoSecrets
     ell: EllVariables
-
