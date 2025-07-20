@@ -37,6 +37,7 @@ ENV PATH="/app/.venv/bin:$PATH" \
 RUN apt-get update && \
     apt-get install -yqq \
         tesseract-ocr \
+        poppler-utils \
         libtesseract-dev \
         libnss3-dev \
         wget \
