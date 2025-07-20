@@ -27,9 +27,37 @@ class OlmoOCREngine(OCREngineBase):
     def __init__(self):
         self.api_key = HF_SECRETS.access_token
         self.endpoint_url = HF_SECRETS.url
+    
+    def __convert_to_png_base64(self, img: Image.Image):
+        png_buffer = io.BytesIO()
+        img.save(png_buffer, format="PNG")
+        png_buffer.seek(0)
+        png_base64 = base64.b64encode(png_buffer.getvalue()).decode("utf-8")
+        return png_base64
+    
+    def _convert_image_to_png_base64(self, image_path: str | None, image_input: bytes | str | None) -> str:
+        
+        if isinstance(image_path, str) and image_input is None:
+            logger.info("The image input is a path. Converting to base64 encoded PNG string...")
+            img = Image.open(image_path)
+            png_base64 = self.__convert_to_png_base64(img)
+            return png_base64
+        
+        if isinstance(image_input, bytes) and image_path is None:
+            logger.info("The image input is bytes. Converting to base64 encoded PNG string...")
+            img = Image.open(io.BytesIO(image_input))
+            png_base64 = self.__convert_to_png_base64(img)
+            return png_base64
+
+        if isinstance(image_input, str) and image_path is None:
+            logger.info("The image input is already a base64 encoded string. Skipping conversion.")
+            png_base64 = image_input
+            return png_base64
+
+        raise AssertionError("Invalid inputs provided.")
 
     def _prepare_image_and_prompt(
-        self, image_path: str | None, image_input: bytes | None, anchor: bool | None
+        self, image_path: str | None, image_input: bytes | str | None, anchor: bool | None
     ) -> tuple[str, str]:
         """
         Prepare the image and prompt for OCR processing.
@@ -51,18 +79,7 @@ class OlmoOCREngine(OCREngineBase):
         if image_path and image_input:
             raise AssertionError("Only one of image_path or image_input should be provided.")
 
-        if isinstance(image_path, str) and image_input is None:
-            img = Image.open(image_path)
-        elif isinstance(image_input, bytes) and image_path is None:
-            img = Image.open(io.BytesIO(image_input))
-        else:
-            raise AssertionError("Invalid type for image_path or image_input.")
-
-        png_buffer = io.BytesIO()
-        img.save(png_buffer, format="PNG")
-        png_buffer.seek(0)
-
-        png_base64 = base64.b64encode(png_buffer.getvalue()).decode("utf-8")
+        png_base64 = self._convert_image_to_png_base64(image_path, image_input)
 
         prompt = default_olmocr_prompt()
         if anchor is not None:
@@ -104,7 +121,7 @@ class OlmoOCREngine(OCREngineBase):
         after=log_attempt_retry,
     )
     def _olmo_ocr_hf_endpoint_request(
-        self, image_path: str | None, image_input: bytes | None = None, anchor: bool | None = None
+        self, image_path: str | None, image_input: bytes | str | None = None, anchor: bool | None = None
     ) -> str:
         """
         Make a request to the HF endpoint for the Olmo OCR model.
@@ -112,7 +129,7 @@ class OlmoOCREngine(OCREngineBase):
         Args
         ----
             image_path (str| None, optional): The path to the image file.
-            image_input (bytes | None, optional): The image input as bytes.
+            image_input (bytes | str | None, optional): The image input as bytes or a base64 string.
             anchor (bool | None, optional): Whether to use an anchor for the OCR engine. Defaults to None.
 
         Return
@@ -143,13 +160,16 @@ class OlmoOCREngine(OCREngineBase):
             )  # type: ignore
 
             content = chat_completion.choices[0].message.content
-            logger.info(content)
             if not content:
                 raise AssertionError("No text extracted from the image.")
             return content
         except APIStatusError as e:
-            logger.warning("Service unavailable. Retrying in 180 seconds...")
-            raise e
+            if "service unavailable" in str(e).lower():
+                logger.warning("Service unavailable, retrying in 180 seconds...")
+                raise e
+            else:
+                logger.error(f"Unexpected APIStatusError: {e}")
+                raise Exception from e
         except Exception as e:
             logger.error(f"Error in _olmo_ocr_hf_endpoint_request: {e}")
             raise e
@@ -161,7 +181,7 @@ class OlmoOCREngine(OCREngineBase):
         after=log_attempt_retry,
     )
     async def _olmo_ocr_hf_endpoint_request_async(
-        self, image_path: str | None = None, image_input: bytes | None = None, anchor: bool | None = None
+        self, image_path: str | None = None, image_input: bytes | str | None = None, anchor: bool | None = None
     ) -> str:
         """
         Make an async request to the HF endpoint for the Olmo OCR model.
@@ -169,7 +189,7 @@ class OlmoOCREngine(OCREngineBase):
         Args
         ----
             image_path (str| None, optional): The path to the image file.
-            image_input (bytes | None, optional): The image input as bytes.
+            image_input (bytes | str | None, optional): The image input as bytes or a base64 string.
             anchor (bool | None, optional): Whether to use the anchor prompt. Defaults to None.
 
         Return
@@ -184,6 +204,7 @@ class OlmoOCREngine(OCREngineBase):
             client = AsyncOpenAI(base_url=self.endpoint_url, api_key=self.api_key)
 
             png_base64, prompt = self._prepare_image_and_prompt(image_path, image_input, anchor)
+
             messages = self._create_chat_messages(png_base64, prompt)
 
             chat_completion = await client.chat.completions.create(
@@ -204,8 +225,12 @@ class OlmoOCREngine(OCREngineBase):
                 raise AssertionError("No text extracted from the image.")
             return content
         except APIStatusError as e:
-            logger.warning("Service unavailable, retrying in 180 seconds...")
-            raise e
+            if "service unavailable" in str(e).lower():
+                logger.warning("Service unavailable, retrying in 180 seconds...")
+                raise e
+            else:
+                logger.error(f"Unexpected APIStatusError: {e}")
+                raise AssertionError from e
         except Exception as e:
             logger.error(f"Error in _olmo_ocr_hf_endpoint_request_async: {e}")
             raise e
@@ -247,14 +272,14 @@ class OlmoOCREngine(OCREngineBase):
         after=log_attempt_retry,
     )
     def extract_text_from_image(
-        self, image_path: str | None = None, image_input: bytes | None = None, anchor: bool | None = None
+        self, image_path: str | None = None, image_input: bytes | str | None = None, anchor: bool | None = None
     ) -> str:
         """
         Extract text from an image using the HF OCR model.
 
         Args:
             image_path (str| None, optional): The path to the image file.
-            image_input (bytes | None, optional): The image input as bytes.
+            image_input (bytes | str | None, optional): The image input as bytes or a base64 string.
             anchor (bool | None, optional): Whether to use an anchor for the OCR engine. Defaults to None.
 
         Returns
@@ -271,14 +296,14 @@ class OlmoOCREngine(OCREngineBase):
         after=log_attempt_retry,
     )
     async def extract_text_from_image_async(
-        self, image_path: str | None = None, image_input: bytes | None = None, anchor: bool | None = None
+        self, image_path: str | None = None, image_input: bytes | str | None = None, anchor: bool | None = None
     ) -> str:
         """
         Extract text from an image using the HF OCR model asynchronously.
 
         Args:
             image_path (str| None, optional): The path to the image file.
-            image_input (bytes | None, optional): The image input as bytes.
+            image_input (bytes | str | None, optional): The image input as bytes or a base64 string.
             anchor (bool | None, optional): Whether to use an anchor for the OCR engine. Defaults to None.
 
         Returns
