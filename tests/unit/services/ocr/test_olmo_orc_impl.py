@@ -184,11 +184,11 @@ class TestOlmoOCREngine:
             ocr_engine._prepare_image_and_prompt("path.png", b"bytes", None)
 
         # Neither path nor bytes provided
-        with pytest.raises(AssertionError, match="Invalid type for image_path or image_input"):
+        with pytest.raises(AssertionError, match="Invalid inputs provided."):
             ocr_engine._prepare_image_and_prompt(None, None, None)
 
         # Wrong types
-        with pytest.raises(AssertionError, match="Invalid type for image_path or image_input"):
+        with pytest.raises(AssertionError, match="Invalid inputs provided."):
             ocr_engine._prepare_image_and_prompt(123, None, None)
 
     def test_create_chat_messages(self, ocr_engine):
