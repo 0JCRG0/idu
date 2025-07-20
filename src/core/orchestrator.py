@@ -41,7 +41,7 @@ async def extract_entities_impl(image_input: bytes) -> dict:
         ocr_engine = OCREngineFactory.create()
         user_content = await ocr_engine.extract_text_from_image_async(image_input=image_input)
         logger.info(f"Extracted text: {user_content[:100]}...")
-        start_time = time.time()
+        start_time = time.perf_counter()
 
         vector_db = VectorDBFactory.create("chromadb")
         vector_db.get_or_create_collection()
@@ -73,7 +73,7 @@ async def extract_entities_impl(image_input: bytes) -> dict:
             "document_type": document_type,
             "confidence": confidence,
             "entities": response_json,
-            "processing_time": round(time.time() - start_time, 2),
+            "processing_time": round(time.perf_counter() - start_time, 2),
         }
         return result
     except Exception as e:
