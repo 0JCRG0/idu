@@ -2,6 +2,7 @@ import asyncio
 
 from django.core.files.uploadedfile import UploadedFile
 from django.http import JsonResponse
+from django.shortcuts import render
 from rest_framework import status
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser
@@ -55,7 +56,6 @@ def extract_entities(request: Request) -> Response:
         if not file:
             return Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Validate file type
         if not file.name:
             return Response({"error": "File must have a name"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -75,18 +75,17 @@ def extract_entities(request: Request) -> Response:
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Read and process file content
         original_content = file.read()
 
-        # Convert file to appropriate format (handles PDF to PNG conversion)
         try:
             content = validate_and_convert_image(original_content, file.content_type or "", file.name)
         except Exception as e:
-            return Response({"error": f"File processing error: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+            file_error = f"File processing error: {str(e)}"
+            logger.error(file_error)
+            return Response({"error": file_error}, status=status.HTTP_400_BAD_REQUEST)
 
         logger.info(f"Processing file: {file.name}")
 
-        # Since Django views are synchronous by default, we need to run the async function
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
@@ -96,7 +95,6 @@ def extract_entities(request: Request) -> Response:
 
         logger.info(response_data)
 
-        # Validate response with Pydantic model
         validated_response = DocumentModelResponse.model_validate(response_data)
 
         return Response(validated_response.model_dump(), status=status.HTTP_200_OK)
@@ -104,6 +102,23 @@ def extract_entities(request: Request) -> Response:
     except Exception as e:
         logger.error(f"Error processing request: {e}", exc_info=True)
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def extract_entities_ui(request):
+    """
+    Render the UI for document entity extraction.
+
+    Parameters
+    ----------
+    request : Request
+        Django request object
+
+    Returns
+    -------
+    HttpResponse
+        Rendered HTML template
+    """
+    return render(request, "extract_entities.html")
 
 
 @api_view(["GET"])
