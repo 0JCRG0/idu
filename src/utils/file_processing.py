@@ -1,9 +1,12 @@
-import io
+from tempfile import NamedTemporaryFile
 
-from pdf2image import convert_from_bytes
+from olmocr.data.renderpdf import render_pdf_to_base64png
 
+from src.utils.logging_helper import get_custom_logger
 
-def pdf_to_png_bytes(pdf_content: bytes) -> bytes:
+logger = get_custom_logger(__name__)
+
+def pdf_to_png_base64(pdf_content: bytes) -> str:
     """
     Convert PDF content to PNG bytes.
 
@@ -23,24 +26,18 @@ def pdf_to_png_bytes(pdf_content: bytes) -> bytes:
         If PDF conversion fails
     """
     try:
-        images = convert_from_bytes(pdf_content, first_page=1, last_page=1, dpi=200)
-
-        if not images:
-            raise ValueError("PDF conversion resulted in no images")
-
-        first_page = images[0]
-
-        img_byte_arr = io.BytesIO()
-        first_page.save(img_byte_arr, format="PNG")
-        img_byte_arr.seek(0)
-
-        return img_byte_arr.getvalue()
+        with NamedTemporaryFile(suffix=".pdf", delete=True) as temp_pdf:
+            temp_pdf.write(pdf_content)
+            png_base64 = render_pdf_to_base64png(temp_pdf.name, 1, 1024)
+        
+        logger.info("PDF converted to PNG successfully")
+        return png_base64
 
     except Exception as e:
         raise Exception(f"Failed to convert PDF to PNG: {str(e)}") from e
 
 
-def validate_and_convert_image(file_content: bytes, content_type: str, filename: str) -> bytes:
+def validate_and_convert_image(file_content: bytes, content_type: str, filename: str) -> bytes | str:
     """
     Validate and convert image file to a standardized format.
 
@@ -68,7 +65,7 @@ def validate_and_convert_image(file_content: bytes, content_type: str, filename:
     filename_lower = filename.lower()
 
     if filename_lower.endswith(".pdf") or content_type == "application/pdf":
-        return pdf_to_png_bytes(file_content)
+        return pdf_to_png_base64(file_content)
 
     if filename_lower.endswith(".png") or content_type == "image/png":
         return file_content
