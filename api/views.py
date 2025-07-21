@@ -1,6 +1,5 @@
 import asyncio
 
-from django.core.files.uploadedfile import UploadedFile
 from django.http import JsonResponse
 from django.shortcuts import render
 from rest_framework import status
@@ -39,7 +38,9 @@ def handle_error(exception: Exception) -> JsonResponse:
 @parser_classes([MultiPartParser])
 def extract_entities(request: Request) -> Response:
     """
-    Extract entities from uploaded document (JPG, PNG, or PDF).
+    Extract entities from uploaded documents (JPG, PNG, or PDF).
+
+    Supports both single file and multiple file uploads.
 
     Parameters
     ----------
@@ -49,55 +50,75 @@ def extract_entities(request: Request) -> Response:
     Returns
     -------
     Response
-        The extracted entities and metadata
+        The extracted entities and metadata for all files
     """
     try:
-        file: UploadedFile | None = request.FILES.get("file")  # type: ignore
-        if not file:
-            return Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
-
-        if not file.name:
-            return Response({"error": "File must have a name"}, status=status.HTTP_400_BAD_REQUEST)
+        files = request.FILES.getlist("file") or request.FILES.getlist("files") # type: ignore
+        if not files:
+            return Response({"error": "No files provided"}, status=status.HTTP_400_BAD_REQUEST)
 
         supported_extensions = get_supported_extensions()
         supported_content_types = get_supported_content_types()
+        
+        file_data = []
+        
+        for file in files:
+            if not file.name:
+                return Response({"error": "File must have a name"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not file.name.lower().endswith(supported_extensions):
-            return Response(
-                {"error": f"Unsupported file extension. Supported formats: {', '.join(supported_extensions)}"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            if not file.name.lower().endswith(supported_extensions):
+                return Response(
+                    {
+                        "error": f"Unsupported file extension for {file.name}. "
+                        f"Supported formats: {', '.join(supported_extensions)}"
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        if file.content_type not in supported_content_types:
-            supported_types_str = ", ".join(supported_content_types)
-            return Response(
-                {"error": f"Invalid content type: {file.content_type}. Supported types: {supported_types_str}"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            if file.content_type not in supported_content_types:
+                supported_types_str = ", ".join(supported_content_types)
+                return Response(
+                    {
+                        "error": f"Invalid content type for {file.name}: {file.content_type}. "
+                        f"Supported types: {supported_types_str}"
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        original_content = file.read()
+            original_content = file.read()
 
-        try:
-            content = validate_and_convert_image(original_content, file.content_type or "", file.name)
-        except Exception as e:
-            file_error = f"File processing error: {str(e)}"
-            logger.error(file_error)
-            return Response({"error": file_error}, status=status.HTTP_400_BAD_REQUEST)
+            try:
+                content = validate_and_convert_image(
+                    original_content, file.content_type or "", file.name
+                )
+            except Exception as e:
+                file_error = f"File processing error for {file.name}: {str(e)}"
+                logger.error(file_error)
+                return Response({"error": file_error}, status=status.HTTP_400_BAD_REQUEST)
 
-        logger.info(f"Processing file: {file.name}")
+            file_data.append({"content": content, "filename": file.name})
+            logger.info(f"Queued for processing: {file.name}")
 
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
-            response_data = loop.run_until_complete(extract_entities_impl(content))
+            tasks = [extract_entities_impl(file_info["content"]) for file_info in file_data]
+            response_data_list = loop.run_until_complete(asyncio.gather(*tasks))
+            
+            results = []
+            for i, response_data in enumerate(response_data_list):
+                response_data["filename"] = file_data[i]["filename"]
+                logger.info(response_data)
+                validated_response = DocumentModelResponse.model_validate(response_data)
+                results.append(validated_response.model_dump())
+                
         finally:
             loop.close()
 
-        logger.info(response_data)
-
-        validated_response = DocumentModelResponse.model_validate(response_data)
-
-        return Response(validated_response.model_dump(), status=status.HTTP_200_OK)
+        if len(results) == 1:
+            return Response(results[0], status=status.HTTP_200_OK)
+        else:
+            return Response({"files": results}, status=status.HTTP_200_OK)
 
     except Exception as e:
         logger.error(f"Error processing request: {e}", exc_info=True)
