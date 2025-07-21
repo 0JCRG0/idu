@@ -13,7 +13,7 @@ from src.llm.llm import extract_entities_from_doc, extract_valid_json, validate_
 from src.llm.prompts import create_document_type_validation_prompt, create_extraction_prompt
 from src.services.ocr.ocr import OCREngineFactory
 from src.services.vector_db.vector_db import VectorDBFactory
-from src.utils.logging_helper import get_custom_logger
+from src.utils.logging_helper import get_custom_logger, log_attempt_retry
 
 logger = get_custom_logger(__name__)
 
@@ -23,14 +23,15 @@ logger = get_custom_logger(__name__)
     reraise=True,
     stop=stop_after_attempt(3),
     retry=retry_if_not_exception_type(Exception),
+    after=log_attempt_retry,
 )
-async def extract_entities_impl(image_input: bytes) -> dict:
+async def extract_entities_impl(image_input: bytes | str) -> dict:
     """
     Implement the endpoint for extraction of entities from the document.
 
     Args
     ----
-        image_input (bytes): The image input as bytes.
+        image_input (bytes | str): The image input as bytes or base64 strings.
 
     Returns
     -------
@@ -40,12 +41,12 @@ async def extract_entities_impl(image_input: bytes) -> dict:
         ocr_engine = OCREngineFactory.create()
         user_content = await ocr_engine.extract_text_from_image_async(image_input=image_input)
         logger.info(f"Extracted text: {user_content[:100]}...")
-        start_time = time.time()
+        start_time = time.perf_counter()
 
         vector_db = VectorDBFactory.create("chromadb")
         vector_db.get_or_create_collection()
 
-        _, documents, metadatas, _, confidence_scores = vector_db.find_similar_docs(user_content)
+        _, _, metadatas, _, confidence_scores = vector_db.find_similar_docs(user_content)
 
         document_type = metadatas[0]["document_type"]
         confidence = confidence_scores[0]
@@ -72,12 +73,9 @@ async def extract_entities_impl(image_input: bytes) -> dict:
             "document_type": document_type,
             "confidence": confidence,
             "entities": response_json,
-            "processing_time": round(time.time() - start_time, 2),
+            "processing_time": round(time.perf_counter() - start_time, 2),
         }
         return result
     except Exception as e:
         logger.error(f"Error extracting entities: {e}", exc_info=True)
         raise e
-
-
-

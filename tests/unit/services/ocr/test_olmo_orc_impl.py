@@ -120,3 +120,170 @@ class TestOlmoOCREngine:
         assert result == "Extracted text with anchor"
         mock_request.assert_called_once_with("test_image.png", None, True)
         mock_parse.assert_called_once_with('{"natural_text": "Extracted text with anchor"}')
+
+    @patch.object(OlmoOCREngine, "_olmo_ocr_hf_endpoint_request_async")
+    @patch.object(OlmoOCREngine, "_parse_ocr_response")
+    @pytest.mark.asyncio
+    async def test_extract_text_from_image_async_success(self, mock_parse, mock_request, ocr_engine):
+        """Test successful async text extraction from image."""
+        mock_request.return_value = '{"natural_text": "Async extracted text"}'
+        mock_parse.return_value = "Async extracted text"
+
+        result = await ocr_engine.extract_text_from_image_async("test_image.png")
+
+        assert result == "Async extracted text"
+        mock_request.assert_called_once_with("test_image.png", None, None)
+        mock_parse.assert_called_once_with('{"natural_text": "Async extracted text"}')
+
+    @patch("src.services.ocr.olmo_ocr_impl.Image.open")
+    @patch("src.services.ocr.olmo_ocr_impl.TesseractOCREngine")
+    def test_prepare_image_and_prompt_with_path(self, mock_tesseract_class, mock_image_open, ocr_engine):
+        """Test image preparation with file path."""
+        mock_img = Mock()
+        mock_image_open.return_value = mock_img
+        mock_tesseract = Mock()
+        mock_tesseract_class.return_value = mock_tesseract
+        mock_tesseract.extract_text_from_image.return_value = "tesseract text"
+
+        with patch("io.BytesIO") as mock_bytesio, patch("base64.b64encode", return_value=b"encoded_image") as _:
+            mock_buffer = Mock()
+            mock_bytesio.return_value = mock_buffer
+            mock_buffer.getvalue.return_value = b"image_data"
+
+            base64_img, prompt = ocr_engine._prepare_image_and_prompt("test.png", None, True)
+
+            assert base64_img == "encoded_image"
+            assert "tesseract text" in prompt
+            mock_image_open.assert_called_once_with("test.png")
+            mock_img.save.assert_called_once_with(mock_buffer, format="PNG")
+
+    @patch("src.services.ocr.olmo_ocr_impl.Image.open")
+    def test_prepare_image_and_prompt_with_bytes(self, mock_image_open, ocr_engine):
+        """Test image preparation with bytes input."""
+        mock_img = Mock()
+        mock_image_open.return_value = mock_img
+        image_bytes = b"fake_image_data"
+
+        with patch("io.BytesIO") as mock_bytesio, patch("base64.b64encode", return_value=b"encoded_image") as _:
+            mock_buffer = Mock()
+            mock_bytesio.return_value = mock_buffer
+            mock_buffer.getvalue.return_value = b"image_data"
+
+            base64_img, prompt = ocr_engine._prepare_image_and_prompt(None, image_bytes, None)
+
+            assert base64_img == "encoded_image"
+            assert (
+                prompt
+                == "Just return the plain text representation of this document as if you were reading it naturally."
+            )
+
+    def test_prepare_image_and_prompt_invalid_inputs(self, ocr_engine):
+        """Test image preparation with invalid inputs."""
+        # Both path and bytes provided
+        with pytest.raises(AssertionError, match="Only one of image_path or image_input should be provided"):
+            ocr_engine._prepare_image_and_prompt("path.png", b"bytes", None)
+
+        # Neither path nor bytes provided
+        with pytest.raises(AssertionError, match="Invalid inputs provided."):
+            ocr_engine._prepare_image_and_prompt(None, None, None)
+
+        # Wrong types
+        with pytest.raises(AssertionError, match="Invalid inputs provided."):
+            ocr_engine._prepare_image_and_prompt(123, None, None)
+
+    def test_create_chat_messages(self, ocr_engine):
+        """Test chat message creation."""
+        base64_img = "encoded_image_data"
+        prompt = "test prompt"
+
+        messages = ocr_engine._create_chat_messages(base64_img, prompt)
+
+        assert len(messages) == 1
+        assert messages[0]["role"] == "user"
+        assert len(messages[0]["content"]) == 2
+        assert messages[0]["content"][0]["type"] == "image_url"
+        assert messages[0]["content"][0]["image_url"]["url"] == "data:image/png;base64,encoded_image_data"
+        assert messages[0]["content"][1]["type"] == "text"
+        assert messages[0]["content"][1]["text"] == "test prompt"
+
+    @patch("src.services.ocr.olmo_ocr_impl.AsyncOpenAI")
+    @patch.object(OlmoOCREngine, "_prepare_image_and_prompt")
+    @patch.object(OlmoOCREngine, "_create_chat_messages")
+    @pytest.mark.asyncio
+    async def test_olmo_ocr_hf_endpoint_request_async_success(
+        self, mock_create_messages, mock_prepare, mock_async_openai, ocr_engine
+    ):
+        """Test successful async HF endpoint request."""
+        mock_prepare.return_value = ("base64_image", "test prompt")
+        mock_create_messages.return_value = [{"role": "user", "content": "test"}]
+
+        mock_client = Mock()
+        mock_async_openai.return_value = mock_client
+        mock_completion = Mock()
+
+        mock_choice = Mock()
+        mock_message = Mock()
+        mock_message.content = '{"natural_text": "async response"}'
+        mock_choice.message = mock_message
+        mock_completion.choices = [mock_choice]
+
+        async def mock_create(*args, **kwargs):
+            return mock_completion
+
+        mock_client.chat.completions.create = mock_create
+
+        result = await ocr_engine._olmo_ocr_hf_endpoint_request_async("test.png")
+
+        assert result == '{"natural_text": "async response"}'
+        mock_async_openai.assert_called_once_with(base_url=ocr_engine.endpoint_url, api_key=ocr_engine.api_key)
+
+    @patch("src.services.ocr.olmo_ocr_impl.AsyncOpenAI")
+    @patch.object(OlmoOCREngine, "_prepare_image_and_prompt")
+    @patch.object(OlmoOCREngine, "_create_chat_messages")
+    @pytest.mark.asyncio
+    async def test_olmo_ocr_hf_endpoint_request_async_no_content(
+        self, mock_create_messages, mock_prepare, mock_async_openai, ocr_engine
+    ):
+        """Test async HF endpoint request with no content."""
+        mock_prepare.return_value = ("base64_image", "test prompt")
+        mock_create_messages.return_value = [{"role": "user", "content": "test"}]
+
+        mock_client = Mock()
+        mock_async_openai.return_value = mock_client
+        mock_completion = Mock()
+
+        mock_choice = Mock()
+        mock_message = Mock()
+        mock_message.content = None
+        mock_choice.message = mock_message
+        mock_completion.choices = [mock_choice]
+
+        async def mock_create(*args, **kwargs):
+            return mock_completion
+
+        mock_client.chat.completions.create = mock_create
+
+        with pytest.raises(AssertionError, match="No text extracted from the image"):
+            await ocr_engine._olmo_ocr_hf_endpoint_request_async("test.png")
+
+    @patch("src.services.ocr.olmo_ocr_impl.OpenAI")
+    @patch.object(OlmoOCREngine, "_prepare_image_and_prompt")
+    @patch.object(OlmoOCREngine, "_create_chat_messages")
+    def test_olmo_ocr_hf_endpoint_request_no_content(self, mock_create_messages, mock_prepare, mock_openai, ocr_engine):
+        """Test HF endpoint request with no content."""
+        mock_prepare.return_value = ("base64_image", "test prompt")
+        mock_create_messages.return_value = [{"role": "user", "content": "test"}]
+
+        mock_client = Mock()
+        mock_openai.return_value = mock_client
+        mock_completion = Mock()
+
+        mock_choice = Mock()
+        mock_message = Mock()
+        mock_message.content = None
+        mock_choice.message = mock_message
+        mock_completion.choices = [mock_choice]
+        mock_client.chat.completions.create.return_value = mock_completion
+
+        with pytest.raises(AssertionError, match="No text extracted from the image"):
+            ocr_engine._olmo_ocr_hf_endpoint_request("test.png")

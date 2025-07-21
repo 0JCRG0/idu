@@ -1,6 +1,21 @@
 # Intelligent Document Understanding API
 
-This API seamlessly integrates state-of-the-art OCR technology, vector database retrieval, and large language models (LLMs) to efficiently process and understand JPG documents.
+This API seamlessly integrates state-of-the-art OCR technology, vector database retrieval, and large language models (LLMs) to efficiently process and understand JPG documents. Built with Django REST Framework for robust and scalable document processing.
+
+---
+
+Shield: [![CC BY-NC-SA 4.0][cc-by-nc-sa-shield]][cc-by-nc-sa]
+
+This work is licensed under a
+[Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License][cc-by-nc-sa].
+
+[![CC BY-NC-SA 4.0][cc-by-nc-sa-image]][cc-by-nc-sa]
+
+[cc-by-nc-sa]: http://creativecommons.org/licenses/by-nc-sa/4.0/
+[cc-by-nc-sa-image]: https://licensebuttons.net/l/by-nc-sa/4.0/88x31.png
+[cc-by-nc-sa-shield]: https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg
+
+---
 
 ## Features
 
@@ -13,23 +28,55 @@ This API seamlessly integrates state-of-the-art OCR technology, vector database 
 1. **Install Dependency Manager**  
    This project uses [`uv`](https://docs.astral.sh/uv/) for dependency management. Follow the [official instructions](https://docs.astral.sh/uv/getting-started/installation/) to install `uv`.
 
-2. **Set Up Environment Variables**  
-   Copy the template `.env` file and fill in your credentials.  
-   Important variables include your HuggingFace (HF) access token and the OCR endpoint URL.
+2. **Install Dependencies**
+   ```shell
+   uv sync
+   ```
 
-3. **Set Up Model Endpoint**  
+3. **Set Up Environment Variables**  
+   Copy the template `.env` file and fill in your credentials.  
+   Important variables include your HuggingFace (HF) access token, OpenAI API key, and Anthropic API key.
+
+4. **Set Up Model Endpoint**  
    - Register for a [Hugging Face](https://huggingface.co/) account and obtain your API token.
    - Deploy an instance of the [olmOCR-7B-0225-preview](https://huggingface.co/allenai/olmOCR-7B-0225-preview) model via HuggingFace Inference Endpoints, and copy your endpoint URL.
    - Add your API token and endpoint URL to your `.env` file.
 
 ## Data Setup
 
-1. Authenticate with Kaggle to access and download datasets. Refer to [KaggleHub instructions](https://github.com/Kaggle/kagglehub).
-2. Run this command to download the [Real World Documents Collections](https://www.kaggle.com/datasets/shaz13/real-world-documents-collections) dataset and to populate the vector database with training data:
+**Important**: Before running the application (locally or via Docker), you must first populate the vector database.
+
+1. **Authenticate with Kaggle**: To access and download datasets, refer to [KaggleHub instructions](https://github.com/Kaggle/kagglehub).
+
+2. **Populate Vector Database**: Run the Django management command to download the [Real World Documents Collections](https://www.kaggle.com/datasets/shaz13/real-world-documents-collections) dataset and populate the vector database:
    ```shell
-   uv run setup.py
+   # Using Makefile (recommended)
+   make populate-vectordb
+   
+   # Or run directly
+   uv run manage.py populate_vectordb
    ```
-   - This command downloads the dataset, moves it to the `data` directory, splits it into training and testing sets, and populates the vector database with training data.
+
+This Django management command (`api/management/commands/populate_vectordb.py`) performs several key operations:
+- Downloads the Real World Documents Collections dataset from Kaggle or from a specified local path
+- Moves the dataset to the `data/` directory
+- Splits the dataset into training (2% by default) and testing sets
+- Processes images through OCR (using olmo_ocr by default)
+- Generates embeddings and populates the ChromaDB vector database
+- Implements batch processing and retry logic for failed files
+
+### Command Options
+
+The populate_vectordb command supports several options:
+- `--dataset-path`: Use existing dataset instead of downloading (e.g., `--dataset-path data/test`)
+- `--batch-size`: Set batch size for processing (default: 10)
+- `--ocr-engine`: Choose OCR engine - "tesseract" or "olmo_ocr" (default: olmo_ocr)
+- `--train-ratio`: Set training data ratio (default: 0.02 = 2%)
+
+Example with custom options:
+```shell
+uv run manage.py populate_vectordb --batch-size 5 --ocr-engine tesseract --train-ratio 0.05
+```
 
 ## OCR Service
 
@@ -53,7 +100,7 @@ This API supports two OCR engines:
 
 ## Processing Flow
 
-1. **Upload**: The user uploads a document (JPEG image).
+1. **Upload**: The user uploads a document (JPEG, PNG or PDF).
 2. **OCR**: The document is processed via the selected OCR service.
 3. **Similarity Search**: The extracted text is compared against the vector database, identifying the nearest document type and providing a confidence score.
 4. **LLM Validation**: The initial document type prediction and confidence score are validated by the LLM.
@@ -71,50 +118,90 @@ This API supports two OCR engines:
        processing_time: float
    ```
 
-## Running with Docker
+## Running the Application
 
-**Note:** Run the setup script (`setup.py`) before building the Docker container.
+### Requirements
+
+- **Local Development**: You must have `tesseract` and `poppler-utils` installed on your local machine
+- **Docker**: All dependencies are included in the container
+
+### Docker (Recommended)
+
+**Note:** Run the Django management command.
 
 Start the service:
 ```shell
 docker compose up --build
+# or use the Makefile command
+make docker-up
 ```
 
-Run integration tests:
+Stop the service:
 ```shell
-uv run pytest -v tests/
+make docker-down
 ```
 
-Alternatively, send a manual request:
-```python
-import requests
+### Local Development
 
-with open("data/test/advertisement/660202.jpg", "rb") as f:
-    image_bytes = f.read()
-url = "http://localhost:8000/v1/extract-entities"
-files = {"file": ("invoice.jpg", image_bytes, "image/jpg")}
-
-response = requests.post(url, files=files)
-data = response.json()
-```
-
-## Running Locally (Without Docker)
-
-Start the FastAPI app directly:
+Start the Django development server:
 ```shell
-python3 -m uvicorn src.main:app --host 0.0.0.0 --port 8000
+python manage.py runserver 0.0.0.0:8000
+# or use the Makefile command
+make local-run
 ```
+
+### Usage
+
+Go to localhost:8000 to access the Django view and upload the document or documents.
+
+## Makefile Commands
+
+This project includes a Makefile with convenient commands for development:
+
+### Database Management
+- `make populate-vectordb` - Populate vector database with training data
+- `make populate-vectordb-test` - Populate vector database with test data
+
+### Code Quality
+- `make lint` - Format code with ruff and fix linting issues
+- `make pre-push` - Run linting checks and unit tests (recommended before pushing)
+
+### Testing
+- `make unit-test` - Run unit tests with coverage reporting
+- `make integration-test` - Run integration tests
+
+### Application
+- `make local-run` - Start Django development server locally
+- `make docker-up` - Start application in Docker container
+- `make docker-down` - Stop Docker container
 
 ## Testing
 
 Execute tests using pytest:
 ```shell
+# Run all tests
+uv run pytest -v tests/
+
+# Run specific test suites
 uv run pytest -v tests/unit/services/ocr/
+uv run pytest -v tests/integration/
+
+# Run tests with coverage
+uv run pytest --cov=src --cov-report=term tests/
+
+# Or use Makefile commands
+make unit-test
+make integration-test
 ```
+
+
 
 ## Future Improvements
 
-- Expand support for additional OCR engines to further improve extraction accuracy.  
-  See [this OCR benchmark](https://huggingface.co/spaces/echo840/ocrbench-leaderboard) for candidate models.
+- **Make the application truly async**: There are some blocking calls in the codebase that could be optimized for better performance.
+- **Use other models for better performance**: Explore alternative OCR and LLM models for improved speed and accuracy. See [this OCR benchmark](https://huggingface.co/spaces/echo840/ocrbench-leaderboard) for candidate models
+- **Production server deployment**: Implement proper production-grade server configuration with Gunicorn/uWSGI
+- **Security improvements**: Implement malicious file detection before processing
+- **Direct PDF parsing**: Parse PDFs natively instead of converting to images first
 
 ---
