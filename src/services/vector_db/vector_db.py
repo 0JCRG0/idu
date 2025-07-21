@@ -1,4 +1,4 @@
-from typing import Any, Literal
+from typing import Literal
 
 from src.services.vector_db.base import VectorDBBase
 from src.services.vector_db.chroma_impl import ChromaVectorDB

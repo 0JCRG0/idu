@@ -26,9 +26,7 @@ class VectorDBBase(ABC):
         pass
 
     @abstractmethod
-    def add_docs(
-        self, documents: list[str], metadatas: list[dict[str, str]] | None = None, ids: list[str] | None = None
-    ) -> None:
+    def add_docs(self, documents: list[str], metadatas: list[dict[str, str]], ids: list[str] | None = None) -> None:
         """
         Add documents to the collection.
 

@@ -1,14 +1,17 @@
 import ast
 import json
 
+import ell
 from anthropic import Anthropic
 from ell.lmp.complex import complex
 from ell.types.message import system, user
 
-from src.constants import ANTHROPIC_API_KEY, EXTRACTION_DEFAULT_MODEL
+from src.constants import ANTHROPIC_API_KEY, ELL_STORE_PATH, EXTRACTION_DEFAULT_MODEL
 from src.utils.logging_helper import get_custom_logger
 
 logger = get_custom_logger(__name__)
+
+ell.init(store=ELL_STORE_PATH, verbose=False)
 
 
 @complex(

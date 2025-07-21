@@ -8,22 +8,23 @@ requires-python = ">=3.12"
 dependencies = [
     "anthropic>=0.57.1",
     "chromadb>=1.0.15",
+    "django>=5.2.4",
+    "djangorestframework>=3.16.0",
     "ell-ai[sqlite]>=0.0.17",
-    "fastapi>=0.115.14",
     "pytesseract>=0.3.13",
     "pytest>=8.4.1",
     "python-dotenv>=1.1.1",
-    "python-multipart>=0.0.20",
     "tenacity>=9.1.2",
+    "pytest-asyncio>=1.1.0",
+    "olmocr>=0.1.76",
 ]
 
 [dependency-groups]
 dev = [
     "ipykernel>=6.29.5",
     "kagglehub>=0.3.12",
-]
-lint = [
-    "ruff>=0.12.2",
+    "ruff>=0.12.4",
+    "pytest-cov>=4.0.0",
 ]
 
 [tool.hatch.build.targets.sdist]
@@ -166,3 +167,28 @@ exclude = '''
 | \.pytest_cache
 )/
 '''
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+    "*/migrations/*",
+    "*/schemas/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+show_missing = true
+precision = 2
+
+[tool.coverage.html]
+directory = "htmlcov"
